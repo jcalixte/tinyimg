@@ -25,9 +25,11 @@ pub fn run(
   root: String,
   candidates: List(Candidate),
   toolset: Toolset,
-  gitignore_outcome: gitignore.Outcome,
+  _gitignore_outcome: gitignore.Outcome,
 ) -> Int {
-  print_banner(root, candidates, gitignore_outcome)
+  // The pre-TUI status banner is printed by tinyimg.dispatch; we go straight
+  // to the streaming per-file output.
+  io.println("")
 
   let total = list.length(candidates)
   case total {
@@ -113,27 +115,4 @@ fn print_line(root: String, total: Int, index: Int, r: FileResult) -> Nil {
         prefix <> format.relative(root, path) <> "  FAIL  " <> reason,
       )
   }
-}
-
-fn print_banner(
-  root: String,
-  candidates: List(Candidate),
-  outcome: gitignore.Outcome,
-) -> Nil {
-  io.println("tinyimg  " <> root)
-  case outcome {
-    gitignore.Applied(_, dropped) if dropped > 0 ->
-      io.println(
-        "  gitignore: dropped " <> int.to_string(dropped) <> " path(s)",
-      )
-    gitignore.NoRepo(_) ->
-      io.println("  gitignore: skipped (not inside a git repo)")
-    gitignore.NoGit(_) ->
-      io.println("  gitignore: skipped (git not on PATH)")
-    _ -> Nil
-  }
-  io.println(
-    "  candidates: " <> int.to_string(list.length(candidates)),
-  )
-  io.println("")
 }

@@ -1,4 +1,5 @@
 import argv
+import gleam/int
 import gleam/io
 import gleam/list
 import shellout
@@ -70,12 +71,28 @@ fn ensure_dir(dir: String) -> Result(String, String) {
 }
 
 fn dispatch(dir: String) -> Nil {
+  // Phase markers print one line per step so the user sees feedback even on
+  // large trees where scan + gitignore each take a few seconds. These lines
+  // live on the normal screen — the alt-screen TUI hides them while running
+  // and they re-appear (above the final summary) on exit.
+  io.println("tinyimg  " <> dir)
+
+  io.println("  scanning...")
   let raw = scan.scan(dir)
+  io.println("    found " <> int.to_string(list.length(raw)) <> " image(s)")
+
+  io.println("  applying gitignore...")
   let outcome = gitignore.filter(dir, raw)
   let kept = case outcome {
     gitignore.Applied(kept:, ..) -> kept
     gitignore.NoRepo(kept) -> kept
     gitignore.NoGit(kept) -> kept
+  }
+  case outcome {
+    gitignore.Applied(_, dropped) ->
+      io.println("    dropped " <> int.to_string(dropped) <> " path(s)")
+    gitignore.NoRepo(_) -> io.println("    skipped (not inside a git repo)")
+    gitignore.NoGit(_) -> io.println("    skipped (git not on PATH)")
   }
 
   let formats =
@@ -89,6 +106,9 @@ fn dispatch(dir: String) -> Nil {
       shellout.exit(3)
     }
     Ok(toolset) -> {
+      io.println(
+        "  " <> int.to_string(list.length(kept)) <> " candidate(s)",
+      )
       let code = case is_tty() {
         True -> tui.run(dir, kept, toolset, outcome)
         False -> plain.run(dir, kept, toolset, outcome)
