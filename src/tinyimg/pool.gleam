@@ -10,12 +10,15 @@ pub type Control {
   Cancel
 }
 
-/// Spawn a coordinator and `worker_count` workers to optimize `candidates`.
+/// Spawns a coordinator and `worker_count` workers to optimize `candidates`.
 /// Each `FileResult` is wrapped via `on_result` and sent to `target`. When
 /// all workers have exited (queue drained or cancelled), the coordinator
 /// sends `on_drained()` to `target` and exits.
 ///
 /// Returns a control Subject. Send `Cancel` to stop scheduling new files.
+///
+/// The control subject is owned by the coordinator process. The caller may
+/// send messages to it from anywhere.
 pub fn start(
   candidates candidates: List(Candidate),
   toolset toolset: Toolset,
@@ -24,10 +27,16 @@ pub fn start(
   on_result on_result: fn(FileResult) -> target_msg,
   on_drained on_drained: fn() -> target_msg,
 ) -> Subject(Control) {
-  let coord = process.new_subject()
-  let control = process.new_subject()
+  // The control subject must be owned by the coordinator process so it can
+  // selector_receive on it. We create it ahead of time by exchanging through
+  // a bootstrap subject: the coordinator creates control and sends it back.
+  let bootstrap: Subject(Subject(Control)) = process.new_subject()
 
   let _ = process.spawn(fn() {
+    let control: Subject(Control) = process.new_subject()
+    let coord: Subject(WorkerSignal) = process.new_subject()
+    process.send(bootstrap, control)
+
     let total = list.length(candidates)
     case total {
       0 -> {
@@ -35,16 +44,9 @@ pub fn start(
         Nil
       }
       _ -> {
-        // spawn workers
-        let n = case worker_count < 1 {
-          True -> 1
-          False -> worker_count
-        }
-        let n = case n > total {
-          True -> total
-          False -> n
-        }
-        list.repeat(Nil, n) |> list.each(fn(_) {
+        let n = clamp_workers(worker_count, total)
+        list.repeat(Nil, n)
+        |> list.each(fn(_) {
           let _ = process.spawn(fn() {
             worker_loop(coord, toolset, target, on_result)
           })
@@ -54,16 +56,31 @@ pub fn start(
           queue: candidates,
           live: n,
           cancelled: False,
-          coord: coord,
-          control: control,
-          target: target,
-          on_drained: on_drained,
+          coord:,
+          control:,
+          target:,
+          on_drained:,
         )
       }
     }
   })
 
-  control
+  // Block briefly for the coordinator to publish the control subject.
+  case process.receive(bootstrap, 1000) {
+    Ok(c) -> c
+    Error(_) -> process.new_subject()
+  }
+}
+
+fn clamp_workers(requested: Int, total: Int) -> Int {
+  let at_least_one = case requested < 1 {
+    True -> 1
+    False -> requested
+  }
+  case at_least_one > total {
+    True -> total
+    False -> at_least_one
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +98,7 @@ fn worker_loop(
   target: Subject(target_msg),
   on_result: fn(FileResult) -> target_msg,
 ) -> Nil {
-  let reply = process.new_subject()
+  let reply: Subject(WorkerCommand) = process.new_subject()
   process.send(coord, Ready(reply))
   case process.receive(reply, 60_000) {
     Ok(Task(candidate)) -> {
@@ -102,6 +119,11 @@ type WorkerSignal {
   Ready(Subject(WorkerCommand))
 }
 
+type CoordEvent {
+  WorkerSig(WorkerSignal)
+  ControlMsg(Control)
+}
+
 fn coordinator_loop(
   queue queue: List(Candidate),
   live live: Int,
@@ -117,16 +139,13 @@ fn coordinator_loop(
       Nil
     }
     _ -> {
-      // Build a selector that watches both the coord (worker ready signals)
-      // and the control channel (external cancel).
       let selector =
         process.new_selector()
-        |> process.select_map(coord, fn(s) { WorkerSig(s) })
-        |> process.select_map(control, fn(c) { ControlMsg(c) })
+        |> process.select_map(coord, WorkerSig)
+        |> process.select_map(control, ControlMsg)
 
       case process.selector_receive(selector, 5000) {
-        Error(_) -> {
-          // Timeout — workers may be stuck on long-running tools. Just loop.
+        Error(_) ->
           coordinator_loop(
             queue:,
             live:,
@@ -136,7 +155,6 @@ fn coordinator_loop(
             target:,
             on_drained:,
           )
-        }
         Ok(WorkerSig(Ready(reply))) -> case cancelled, queue {
           False, [first, ..rest] -> {
             process.send(reply, Task(first))
@@ -163,21 +181,17 @@ fn coordinator_loop(
             )
           }
         }
-        Ok(ControlMsg(Cancel)) -> coordinator_loop(
-          queue: queue,
-          live:,
-          cancelled: True,
-          coord:,
-          control:,
-          target:,
-          on_drained:,
-        )
+        Ok(ControlMsg(Cancel)) ->
+          coordinator_loop(
+            queue:,
+            live:,
+            cancelled: True,
+            coord:,
+            control:,
+            target:,
+            on_drained:,
+          )
       }
     }
   }
-}
-
-type CoordEvent {
-  WorkerSig(WorkerSignal)
-  ControlMsg(Control)
 }
