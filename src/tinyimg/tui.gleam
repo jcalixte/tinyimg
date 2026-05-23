@@ -226,9 +226,16 @@ fn view(model: Model) -> shore.Node(Msg) {
         text -> ui.text_styled(text, Some(style.Cyan), None)
       },
       ui.br(),
-      progress_row(model),
+      // Progress bar fills the inner row; ui.row is avoided because shore's
+      // Row leaves the cursor at the end of its last child, which cascades
+      // a margin into every subsequent item in the Box.
+      ui.progress(
+        style.Pct(100),
+        model.planned_total,
+        model.summary.total,
+        style.Green,
+      ),
       ui.text(stats_line(model)),
-      ui.br(),
       recent_section(model, budget),
       ui.br(),
       footer_row(model),
@@ -239,30 +246,23 @@ fn view(model: Model) -> shore.Node(Msg) {
   |> layout.center(style.Pct(95), style.Pct(90))
 }
 
-fn progress_row(model: Model) -> shore.Node(Msg) {
-  let done = model.summary.total
-  let bar = ui.progress(style.Pct(70), model.planned_total, done, style.Green)
-  ui.row([
-    bar,
-    ui.text("  "),
-    ui.text(int.to_string(done) <> " / " <> int.to_string(model.planned_total)),
-  ])
-}
-
 fn stats_line(model: Model) -> String {
-  "  optimized "
+  int.to_string(model.summary.total)
+  <> " / "
+  <> int.to_string(model.planned_total)
+  <> "   optimized "
   <> int.to_string(model.summary.optimized)
-  <> "  skipped "
+  <> "   skipped "
   <> int.to_string(model.summary.skipped)
-  <> "  failed "
+  <> "   failed "
   <> int.to_string(model.summary.failed)
-  <> "  saved "
+  <> "   saved "
   <> format.bytes(model.summary.saved)
 }
 
 fn recent_section(model: Model, budget: Int) -> shore.Node(Msg) {
   case model.recent {
-    [] -> ui.text("(waiting for first result...)")
+    [] -> ui.text("(waiting for first result…)")
     items -> ui.col([
       ui.text("recent"),
       ..list.map(items, fn(r) { recent_line(model.root, r, budget) })
