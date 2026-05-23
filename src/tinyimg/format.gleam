@@ -1,5 +1,6 @@
 import gleam/float
 import gleam/int
+import gleam/list
 import gleam/string
 
 pub fn bytes(n: Int) -> String {
@@ -52,5 +53,89 @@ pub fn relative(root: String, path: String) -> String {
   case string.starts_with(path, root <> "/") {
     True -> string.drop_start(path, string.length(root) + 1)
     False -> path
+  }
+}
+
+/// Contract `path` so its rendered width is at most `max` characters.
+///
+/// Strategy, in order of preference:
+///   1. If the path already fits, return it unchanged.
+///   2. Drop leading path segments and prepend ".../", keeping as many
+///      trailing segments as fit. The trailing filename is never dropped.
+///   3. If even ".../<filename>" exceeds `max`, middle-truncate the
+///      filename with "..." in the middle.
+///   4. If `max` is very small (<= 3), return the first `max` chars.
+pub fn contract_path(path: String, max: Int) -> String {
+  case max <= 0 {
+    True -> ""
+    False -> case string.length(path) <= max {
+      True -> path
+      False -> shrink(path, max)
+    }
+  }
+}
+
+fn shrink(path: String, max: Int) -> String {
+  let segments = string.split(path, "/")
+  case segments {
+    [] -> path
+    _ -> {
+      let base = case list.last(segments) {
+        Ok(s) -> s
+        Error(_) -> path
+      }
+      let base_len = string.length(base)
+      let ellipsis = ".../"
+      let ellipsis_len = 4
+
+      case base_len + ellipsis_len > max {
+        // Even ".../<filename>" doesn't fit — middle-truncate the filename.
+        True -> middle_truncate(base, max)
+        False -> {
+          // Try to keep as many trailing segments as fit, with ".../" prefix.
+          let budget = max - ellipsis_len
+          let tail = build_tail(segments |> list.reverse, budget, "", True)
+          ellipsis <> tail
+        }
+      }
+    }
+  }
+}
+
+fn build_tail(
+  rev_segments: List(String),
+  budget: Int,
+  acc: String,
+  is_first: Bool,
+) -> String {
+  case rev_segments {
+    [] -> acc
+    [s, ..rest] -> {
+      let candidate = case is_first {
+        True -> s
+        False -> s <> "/" <> acc
+      }
+      case string.length(candidate) <= budget {
+        True -> build_tail(rest, budget, candidate, False)
+        False -> acc
+      }
+    }
+  }
+}
+
+fn middle_truncate(s: String, max: Int) -> String {
+  let len = string.length(s)
+  case len <= max {
+    True -> s
+    False -> case max <= 3 {
+      True -> string.slice(s, 0, max)
+      False -> {
+        let ellipsis = "..."
+        let keep = max - 3
+        let left = keep / 2 + keep % 2
+        let right = keep - left
+        string.slice(s, 0, left) <> ellipsis <> string.slice(s, len - right, right)
+      }
+    }
   }
 }

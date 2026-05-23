@@ -23,6 +23,24 @@ fn system_cpus() -> Int
 @external(erlang, "tinyimg_ffi", "monotonic_ms")
 fn monotonic_ms() -> Int
 
+@external(erlang, "tinyimg_ffi", "terminal_columns")
+fn terminal_columns() -> Int
+
+/// Width budget for path text inside the box. Recomputed on every render so
+/// the layout adapts when the terminal is resized.
+///   - box outer width: 95% of terminal columns
+///   - 2 cols for the box border
+///   - 2 cols for the inner indent
+///   - 22 cols reserved for "  <before> -> <after>  <pct>" (e.g. "1023 KB -> 999 KB  -2%")
+fn path_budget() -> Int {
+  let cols = terminal_columns()
+  let inner = cols * 95 / 100 - 4 - 22
+  case inner < 12 {
+    True -> 12
+    False -> inner
+  }
+}
+
 pub type Msg {
   Boot(Subject(shore.Event(Msg)))
   WorkerFinished(FileResult)
@@ -196,9 +214,13 @@ fn take_first(list: List(a), n: Int) -> List(a) {
 // ---------------------------------------------------------------------------
 
 fn view(model: Model) -> shore.Node(Msg) {
+  let budget = path_budget()
+  // Header gets a slightly bigger budget because it has no per-row sizes.
+  let header_budget = budget + 18
+
   ui.box(
     [
-      ui.text("tinyimg  " <> model.root),
+      ui.text("tinyimg  " <> format.contract_path(model.root, header_budget)),
       case model.notice {
         "" -> ui.br()
         text -> ui.text_styled(text, Some(style.Cyan), None)
@@ -207,14 +229,14 @@ fn view(model: Model) -> shore.Node(Msg) {
       progress_row(model),
       ui.text(stats_line(model)),
       ui.br(),
-      recent_section(model),
+      recent_section(model, budget),
       ui.br(),
       footer_row(model),
       ui.keybind(key.Char("q"), QuitPressed),
     ],
     None,
   )
-  |> layout.center(style.Pct(80), style.Pct(80))
+  |> layout.center(style.Pct(95), style.Pct(90))
 }
 
 fn progress_row(model: Model) -> shore.Node(Msg) {
@@ -238,22 +260,25 @@ fn stats_line(model: Model) -> String {
   <> format.bytes(model.summary.saved)
 }
 
-fn recent_section(model: Model) -> shore.Node(Msg) {
+fn recent_section(model: Model, budget: Int) -> shore.Node(Msg) {
   case model.recent {
     [] -> ui.text("(waiting for first result...)")
     items -> ui.col([
       ui.text("recent"),
-      ..list.map(items, fn(r) { recent_line(model.root, r) })
+      ..list.map(items, fn(r) { recent_line(model.root, r, budget) })
     ])
   }
 }
 
-fn recent_line(root: String, r: FileResult) -> shore.Node(Msg) {
+fn recent_line(root: String, r: FileResult, budget: Int) -> shore.Node(Msg) {
+  let shown = fn(p) {
+    format.contract_path(format.relative(root, p), budget)
+  }
   case r {
     Optimized(path, before, after) ->
       ui.text(
         "  "
-        <> format.relative(root, path)
+        <> shown(path)
         <> "   "
         <> format.bytes(before)
         <> " -> "
@@ -263,13 +288,13 @@ fn recent_line(root: String, r: FileResult) -> shore.Node(Msg) {
       )
     Skipped(path, size) ->
       ui.text_styled(
-        "  " <> format.relative(root, path) <> "   " <> format.bytes(size) <> "   skipped",
+        "  " <> shown(path) <> "   " <> format.bytes(size) <> "   skipped",
         Some(style.Yellow),
         None,
       )
     Failed(path, reason) ->
       ui.text_styled(
-        "  " <> format.relative(root, path) <> "   FAIL  " <> reason,
+        "  " <> shown(path) <> "   FAIL  " <> reason,
         Some(style.Red),
         None,
       )

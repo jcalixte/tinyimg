@@ -72,3 +72,55 @@ pub fn relative_root_only_test() {
   // The root path itself returned as-is (no trailing slash to strip).
   assert format.relative("/foo", "/foo") == "/foo"
 }
+
+pub fn contract_path_fits_test() {
+  // Short paths pass through.
+  assert format.contract_path("a/b.png", 20) == "a/b.png"
+}
+
+pub fn contract_path_drops_leading_segments_test() {
+  // Long path with a short basename: keep the trailing segments that fit
+  // behind a ".../" prefix.
+  let path = "assets/heroes/illustrations/big/banner.png"
+  let out = format.contract_path(path, 28)
+  assert out == ".../big/banner.png"
+}
+
+pub fn contract_path_keeps_filename_test() {
+  // Even when only the basename fits, the filename is preserved.
+  let path = "assets/heroes/big/banner.png"
+  let out = format.contract_path(path, 14)
+  assert out == ".../banner.png"
+}
+
+pub fn contract_path_middle_truncates_filename_test() {
+  // If the filename alone exceeds the budget, middle-truncate it.
+  let path = "very-long-image-name-that-is-too-wide.png"
+  let out = format.contract_path(path, 20)
+  // Length must be at most 20 and contain "..."
+  assert string_length(out) == 20
+  assert contains(out, "...")
+}
+
+pub fn contract_path_zero_budget_test() {
+  assert format.contract_path("a/b.png", 0) == ""
+}
+
+pub fn contract_path_tiny_budget_test() {
+  // Budget of 3 chars: just the first 3 of the basename.
+  let out = format.contract_path("very-long-name.png", 3)
+  assert string_length(out) == 3
+}
+
+@external(erlang, "string", "length")
+fn string_length(s: String) -> Int
+
+fn contains(haystack: String, needle: String) -> Bool {
+  case erl_split(haystack, needle) {
+    [_] -> False
+    _ -> True
+  }
+}
+
+@external(erlang, "string", "split")
+fn erl_split(s: String, sep: String) -> List(String)

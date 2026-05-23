@@ -1,5 +1,5 @@
 -module(tinyimg_ffi).
--export([is_tty/0, system_cpus/0, monotonic_ms/0, unique_id/0]).
+-export([is_tty/0, system_cpus/0, monotonic_ms/0, unique_id/0, terminal_columns/0]).
 
 is_tty() ->
     case io:columns() of
@@ -18,3 +18,9 @@ monotonic_ms() ->
 
 unique_id() ->
     erlang:unique_integer([positive]).
+
+terminal_columns() ->
+    case io:columns() of
+        {ok, N} when is_integer(N), N > 0 -> N;
+        _ -> 80
+    end.
