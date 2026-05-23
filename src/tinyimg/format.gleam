@@ -85,14 +85,14 @@ fn shrink(path: String, max: Int) -> String {
         Error(_) -> path
       }
       let base_len = string.length(base)
-      let ellipsis = ".../"
-      let ellipsis_len = 4
+      let ellipsis = "…/"
+      let ellipsis_len = 2
 
       case base_len + ellipsis_len > max {
-        // Even ".../<filename>" doesn't fit — middle-truncate the filename.
+        // Even "…/<filename>" doesn't fit — middle-truncate the filename.
         True -> middle_truncate(base, max)
         False -> {
-          // Try to keep as many trailing segments as fit, with ".../" prefix.
+          // Try to keep as many trailing segments as fit, with "…/" prefix.
           let budget = max - ellipsis_len
           let tail = build_tail(segments |> list.reverse, budget, "", True)
           ellipsis <> tail
@@ -127,11 +127,11 @@ fn middle_truncate(s: String, max: Int) -> String {
   let len = string.length(s)
   case len <= max {
     True -> s
-    False -> case max <= 3 {
+    False -> case max <= 1 {
       True -> string.slice(s, 0, max)
       False -> {
-        let ellipsis = "..."
-        let keep = max - 3
+        let ellipsis = "…"
+        let keep = max - 1
         let left = keep / 2 + keep % 2
         let right = keep - left
         string.slice(s, 0, left) <> ellipsis <> string.slice(s, len - right, right)
