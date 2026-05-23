@@ -41,12 +41,15 @@ brew install optipng jpegoptim
 | 2 | invalid usage or bad path |
 | 3 | required native tool missing |
 
-## Build
+## Build & install
 
 ```sh
-gleam run -- ./assets    # try it
+gleam run -- ./assets    # try it from the checkout
 gleam test               # run unit tests
 gleam build              # compile
+
+./install.sh             # install globally as `tinyimg`
+                         # (~/.local/bin/tinyimg + ~/.local/share/tinyimg/)
 ```
 
 See [`docs/adr/0001-tui-for-a-batch-cli.md`](docs/adr/0001-tui-for-a-batch-cli.md) for the design decision behind the TUI.
