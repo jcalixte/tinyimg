@@ -5,6 +5,14 @@ import gleam/string
 import tinyimg/format
 import tinyimg/worker.{type FileResult, Failed, Optimized, Skipped}
 
+// Use \r\n so the line resets to column 0 even when the terminal was left
+// in raw input mode by the shore TUI (its restore step does not revert
+// cooked mode). Cooked mode also handles \r\n correctly, so this is safe
+// in both plain and TUI exit paths.
+fn outln(s: String) -> Nil {
+  io.print(s <> "\r\n")
+}
+
 pub type Summary {
   Summary(
     root: String,
@@ -68,20 +76,20 @@ pub fn set_elapsed(s: Summary, ms: Int) -> Summary { Summary(..s, elapsed_ms: ms
 /// Print a multi-line summary block to stdout. Suitable both as the
 /// post-TUI summary and as the end-of-stream block in plain mode.
 pub fn print(s: Summary, planned_total: Int) -> Nil {
-  io.println("")
+  outln("")
   case s.cancelled {
     True ->
-      io.println(
+      outln(
         "cancelled after "
         <> int.to_string(s.total)
         <> " of "
         <> int.to_string(planned_total)
         <> " files",
       )
-    False -> io.println(int.to_string(s.total) <> " files processed")
+    False -> outln(int.to_string(s.total) <> " files processed")
   }
 
-  io.println(
+  outln(
     "  optimized: "
     <> int.to_string(s.optimized)
     <> "   skipped: "
@@ -93,7 +101,7 @@ pub fn print(s: Summary, planned_total: Int) -> Nil {
   case s.original {
     0 -> Nil
     _ ->
-      io.println(
+      outln(
         "  saved: "
         <> format.bytes(s.saved)
         <> " of "
@@ -104,17 +112,17 @@ pub fn print(s: Summary, planned_total: Int) -> Nil {
       )
   }
 
-  io.println("  time:  " <> format.duration_ms(s.elapsed_ms))
+  outln("  time:  " <> format.duration_ms(s.elapsed_ms))
 
   case s.failures {
     [] -> Nil
     failures -> {
-      io.println("")
-      io.println("failures:")
+      outln("")
+      outln("failures:")
       list.reverse(failures)
       |> list.each(fn(f) {
         let #(path, reason) = f
-        io.println("  " <> format.relative(s.root, path) <> "  " <> reason)
+        outln("  " <> format.relative(s.root, path) <> "  " <> reason)
       })
     }
   }
