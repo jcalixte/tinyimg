@@ -10,7 +10,7 @@ import tinyimg/scan.{type Candidate}
 import tinyimg/tools
 import tinyimg/tui
 
-const version = "1.0.0"
+const version = "1.1.0"
 
 pub type Action {
   Help
