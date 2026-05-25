@@ -17,6 +17,16 @@ If `DIR` is omitted, the current working directory is used. Pixels are preserved
 - Two-stage quit: `q` once stops scheduling and drains in-flight work; `q` again forces exit.
 - TTY vs non-TTY: full TUI on a terminal, plain one-line-per-file streaming when piped.
 
+## Install
+
+```sh
+brew install jcalixte/tinyimg/tinyimg
+```
+
+This pulls in `gleam`, `erlang`, `oxipng`, and `jpeg-turbo` (provides `jpegtran`).
+
+For a from-source install without Homebrew, see [Build & install](#build--install).
+
 ## Requirements
 
 Gleam (BEAM target) and at least one native optimizer per format you have:
