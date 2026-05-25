@@ -27,7 +27,7 @@ repo_dir="$(cd "$(dirname "$0")" && pwd)"
 tap_dir="${TAP_DIR:-$HOME/jclab/homebrew-tap}"
 formula="$tap_dir/Formula/tinyimg.rb"
 
-for cmd in gleam gh git curl shasum; do
+for cmd in gleam gh git git-cliff curl shasum; do
   command -v "$cmd" >/dev/null 2>&1 || { echo "error: '$cmd' not on PATH" >&2; exit 1; }
 done
 
@@ -56,7 +56,13 @@ sed -i.bak -E "s/^version = \".*\"/version = \"$new\"/" gleam.toml && rm gleam.t
 echo "==> gleam build"
 gleam build >/dev/null
 
-git add gleam.toml
+echo "==> regenerating CHANGELOG.md (git-cliff)"
+git-cliff --tag "$tag" -o CHANGELOG.md
+notes_file="$(mktemp -t tinyimg-release-notes-XXXXXX.md)"
+trap 'rm -f "$notes_file"' EXIT
+git-cliff --tag "$tag" --unreleased --strip all > "$notes_file"
+
+git add gleam.toml CHANGELOG.md
 git commit -m "chore: bump version to $new"
 git tag "$tag"
 
@@ -65,7 +71,7 @@ git push origin main
 git push origin "$tag"
 
 echo "==> gh release create $tag"
-gh release create "$tag" --repo jcalixte/tinyimg --title "$tag" --generate-notes
+gh release create "$tag" --repo jcalixte/tinyimg --title "$tag" --notes-file "$notes_file"
 
 echo "==> computing tarball sha256"
 sha=$(curl -fsSL "https://github.com/jcalixte/tinyimg/archive/refs/tags/$tag.tar.gz" \
