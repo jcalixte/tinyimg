@@ -52,6 +52,7 @@ tag="v$new"
 echo "==> $current → $new ($tag)"
 
 sed -i.bak -E "s/^version = \".*\"/version = \"$new\"/" gleam.toml && rm gleam.toml.bak
+sed -i.bak -E "s/^const version = \".*\"/const version = \"$new\"/" src/tinyimg.gleam && rm src/tinyimg.gleam.bak
 
 echo "==> gleam build"
 gleam build >/dev/null
@@ -62,7 +63,7 @@ notes_file="$(mktemp -t tinyimg-release-notes-XXXXXX.md)"
 trap 'rm -f "$notes_file"' EXIT
 git-cliff --tag "$tag" --unreleased --strip all > "$notes_file"
 
-git add gleam.toml CHANGELOG.md
+git add gleam.toml src/tinyimg.gleam CHANGELOG.md
 git commit -m "chore: bump version to $new"
 git tag "$tag"
 
