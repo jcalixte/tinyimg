@@ -9,7 +9,7 @@
 # Assumes:
 #   - clean working tree on main
 #   - `gh` authenticated; `origin` push URLs mirror to tangled + github
-#   - tap cloned at ${TAP_DIR:-../homebrew-tap}, clean main checkout
+#   - tap cloned at ${TAP_DIR:-~/jclab/homebrew-tap}, clean main checkout
 #
 # On failure mid-flow: the script aborts. Bump+tag steps are reversible with
 # `git tag -d vX.Y.Z && git push origin :refs/tags/vX.Y.Z && git reset --hard HEAD~1`.
@@ -24,7 +24,7 @@ case "$bump" in
 esac
 
 repo_dir="$(cd "$(dirname "$0")" && pwd)"
-tap_dir="${TAP_DIR:-$repo_dir/../homebrew-tap}"
+tap_dir="${TAP_DIR:-$HOME/jclab/homebrew-tap}"
 formula="$tap_dir/Formula/tinyimg.rb"
 
 for cmd in gleam gh git curl shasum; do
