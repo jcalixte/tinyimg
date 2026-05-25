@@ -20,7 +20,7 @@ If `DIR` is omitted, the current working directory is used. Pixels are preserved
 ## Install
 
 ```sh
-brew install jcalixte/tinyimg/tinyimg
+brew install jcalixte/tap/tinyimg
 ```
 
 This pulls in `gleam`, `erlang`, `oxipng`, and `jpeg-turbo` (provides `jpegtran`).
