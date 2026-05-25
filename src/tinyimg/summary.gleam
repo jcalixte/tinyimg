@@ -149,29 +149,91 @@ fn print_details(s: Summary) -> Nil {
   case s.details {
     [] -> Nil
     _ -> {
+      let rows =
+        list.reverse(s.details)
+        |> list.map(fn(r) { detail_row(s.root, r) })
+      let widths = column_widths(rows)
       outln("")
       outln("report:")
-      list.reverse(s.details)
-      |> list.each(fn(r) { outln("  " <> detail_line(s.root, r)) })
+      outln("  " <> render_row(#("status", "path", "size", "change"), widths))
+      outln("  " <> separator(widths))
+      list.each(rows, fn(r) { outln("  " <> render_row(r, widths)) })
     }
   }
 }
 
-fn detail_line(root: String, r: FileResult) -> String {
+fn detail_row(root: String, r: FileResult) -> #(String, String, String, String) {
   case r {
-    Optimized(path, before, after) ->
-      format.relative(root, path)
-      <> "  "
-      <> format.bytes(before)
-      <> " -> "
-      <> format.bytes(after)
-      <> "  "
-      <> format.signed_percent(before, after)
-    Skipped(path, size) ->
-      format.relative(root, path) <> "  " <> format.bytes(size) <> "  skipped"
-    Failed(path, reason) ->
-      format.relative(root, path) <> "  FAIL  " <> reason
+    Optimized(path, before, after) -> #(
+      "optimized",
+      format.relative(root, path),
+      format.bytes(before) <> " -> " <> format.bytes(after),
+      format.signed_percent(before, after),
+    )
+    Skipped(path, size) -> #(
+      "skipped",
+      format.relative(root, path),
+      format.bytes(size),
+      "",
+    )
+    Failed(path, reason) -> #(
+      "FAIL",
+      format.relative(root, path),
+      "",
+      reason,
+    )
   }
+}
+
+fn column_widths(
+  rows: List(#(String, String, String, String)),
+) -> #(Int, Int, Int, Int) {
+  let header = #(
+    string.length("status"),
+    string.length("path"),
+    string.length("size"),
+    string.length("change"),
+  )
+  list.fold(rows, header, fn(acc, row) {
+    let #(s, p, sz, ch) = row
+    let #(a, b, c, d) = acc
+    #(
+      int.max(a, string.length(s)),
+      int.max(b, string.length(p)),
+      int.max(c, string.length(sz)),
+      int.max(d, string.length(ch)),
+    )
+  })
+}
+
+fn render_row(
+  row: #(String, String, String, String),
+  widths: #(Int, Int, Int, Int),
+) -> String {
+  let #(s, p, sz, ch) = row
+  let #(ws, wp, wsz, _wch) = widths
+  pad(s, ws)
+  <> "  "
+  <> pad(p, wp)
+  <> "  "
+  <> pad(sz, wsz)
+  <> "  "
+  <> ch
+}
+
+fn separator(widths: #(Int, Int, Int, Int)) -> String {
+  let #(ws, wp, wsz, wch) = widths
+  string.repeat("-", ws)
+  <> "  "
+  <> string.repeat("-", wp)
+  <> "  "
+  <> string.repeat("-", wsz)
+  <> "  "
+  <> string.repeat("-", wch)
+}
+
+fn pad(s: String, n: Int) -> String {
+  string.pad_end(s, to: n, with: " ")
 }
 
 pub fn exit_code(s: Summary) -> Int {
