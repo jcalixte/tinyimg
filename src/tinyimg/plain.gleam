@@ -26,6 +26,7 @@ pub fn run(
   candidates: List(Candidate),
   toolset: Toolset,
   _gitignore_outcome: gitignore.Outcome,
+  report: Bool,
 ) -> Int {
   // The pre-TUI status banner is printed by tinyimg.dispatch; we go straight
   // to the streaming per-file output.
@@ -37,7 +38,7 @@ pub fn run(
       io.println("nothing to do.")
       0
     }
-    _ -> run_loop(root, candidates, toolset, total)
+    _ -> run_loop(root, candidates, toolset, total, report)
   }
 }
 
@@ -46,6 +47,7 @@ fn run_loop(
   candidates: List(Candidate),
   toolset: Toolset,
   total: Int,
+  report: Bool,
 ) -> Int {
   let subject = process.new_subject()
   let start = monotonic_ms()
@@ -62,7 +64,7 @@ fn run_loop(
 
   let final = drain(subject, summary.empty(root), root, total, 1)
   let final = summary.set_elapsed(final, monotonic_ms() - start)
-  summary.print(final, total)
+  summary.print(final, total, report)
   summary.exit_code(final)
 }
 

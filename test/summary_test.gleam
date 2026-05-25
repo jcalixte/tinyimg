@@ -9,7 +9,20 @@ pub fn empty_summary_test() {
   assert s.skipped == 0
   assert s.failed == 0
   assert s.saved == 0
+  assert s.details == []
   assert s.cancelled == False
+}
+
+pub fn details_track_results_in_reverse_order_test() {
+  let r1 = Optimized(path: "a", before: 100, after: 80)
+  let r2 = Skipped(path: "b", size: 50)
+  let r3 = Failed(path: "c", reason: "boom")
+  let s =
+    summary.empty("/r")
+    |> summary.add(r1)
+    |> summary.add(r2)
+    |> summary.add(r3)
+  assert s.details == [r3, r2, r1]
 }
 
 pub fn add_optimized_test() {

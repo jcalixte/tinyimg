@@ -2,6 +2,7 @@ import argv
 import gleam/int
 import gleam/io
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import shellout
 import simplifile
 import tinyimg/gitignore
@@ -10,12 +11,12 @@ import tinyimg/scan.{type Candidate}
 import tinyimg/tools
 import tinyimg/tui
 
-const version = "1.1.0"
+const version = "1.2.0"
 
 pub type Action {
   Help
   Version
-  Run(String)
+  Run(dir: String, report: Bool)
   BadUsage(String)
 }
 
@@ -37,31 +38,48 @@ pub fn main() -> Nil {
       io.println_error("tinyimg: " <> msg)
       shellout.exit(2)
     }
-    Run(dir) ->
+    Run(dir, report) ->
       case ensure_dir(dir) {
         Error(msg) -> {
           io.println_error("tinyimg: " <> msg)
           shellout.exit(2)
         }
-        Ok(dir) -> dispatch(dir)
+        Ok(dir) -> dispatch(dir, report)
       }
   }
 }
 
 fn parse_args(args: List(String)) -> Action {
+  parse_args_loop(args, None, False)
+}
+
+fn parse_args_loop(
+  args: List(String),
+  dir: Option(String),
+  report: Bool,
+) -> Action {
   case args {
-    [] ->
+    [] -> finalize_run(dir, report)
+    ["-h", ..] | ["--help", ..] -> Help
+    ["-V", ..] | ["--version", ..] -> Version
+    ["--report", ..rest] | ["-r", ..rest] ->
+      parse_args_loop(rest, dir, True)
+    [arg, ..rest] ->
+      case dir {
+        Some(_) -> BadUsage("too many arguments. Usage: tinyimg [-r] [DIR]")
+        None -> parse_args_loop(rest, Some(arg), report)
+      }
+  }
+}
+
+fn finalize_run(dir: Option(String), report: Bool) -> Action {
+  case dir {
+    Some(d) -> Run(d, report)
+    None ->
       case simplifile.current_directory() {
-        Ok(cwd) -> Run(cwd)
+        Ok(cwd) -> Run(cwd, report)
         Error(_) -> BadUsage("could not determine current working directory")
       }
-    [arg] ->
-      case arg {
-        "-h" | "--help" -> Help
-        "-V" | "--version" -> Version
-        _ -> Run(arg)
-      }
-    _ -> BadUsage("too many arguments. Usage: tinyimg [DIR]")
   }
 }
 
@@ -73,7 +91,7 @@ fn ensure_dir(dir: String) -> Result(String, String) {
   }
 }
 
-fn dispatch(dir: String) -> Nil {
+fn dispatch(dir: String, report: Bool) -> Nil {
   // Phase markers print one line per step so the user sees feedback even on
   // large trees where scan + gitignore each take a few seconds. These lines
   // live on the normal screen — the alt-screen TUI hides them while running
@@ -111,8 +129,8 @@ fn dispatch(dir: String) -> Nil {
     Ok(toolset) -> {
       io.println("  " <> int.to_string(list.length(kept)) <> " candidate(s)")
       let code = case is_tty() {
-        True -> tui.run(dir, kept, toolset, outcome)
-        False -> plain.run(dir, kept, toolset, outcome)
+        True -> tui.run(dir, kept, toolset, outcome, report)
+        False -> plain.run(dir, kept, toolset, outcome, report)
       }
       shellout.exit(code)
     }
@@ -124,12 +142,13 @@ fn print_help() -> Nil {
     "tinyimg - losslessly optimize PNG and JPG images in a directory
 
 USAGE
-  tinyimg [DIR]
+  tinyimg [-r] [DIR]
 
 ARGS
   DIR    Directory to optimize. Defaults to the current working directory.
 
 OPTIONS
+  -r, --report   Print the full per-file report after the run
   -h, --help     Print this help and exit
   -V, --version  Print version and exit
 

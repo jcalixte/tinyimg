@@ -23,6 +23,9 @@ pub type Summary {
     saved: Int,
     original: Int,
     failures: List(#(String, String)),
+    /// All per-file results in reverse chronological order (newest first).
+    /// Reversed at print time for chronological display.
+    details: List(FileResult),
     cancelled: Bool,
     elapsed_ms: Int,
   )
@@ -38,12 +41,14 @@ pub fn empty(root: String) -> Summary {
     saved: 0,
     original: 0,
     failures: [],
+    details: [],
     cancelled: False,
     elapsed_ms: 0,
   )
 }
 
 pub fn add(s: Summary, r: FileResult) -> Summary {
+  let s = Summary(..s, details: [r, ..s.details])
   case r {
     Optimized(_, before, after) ->
       Summary(
@@ -78,7 +83,16 @@ pub fn set_elapsed(s: Summary, ms: Int) -> Summary {
 
 /// Print a multi-line summary block to stdout. Suitable both as the
 /// post-TUI summary and as the end-of-stream block in plain mode.
-pub fn print(s: Summary, planned_total: Int) -> Nil {
+///
+/// When `report` is true, the full per-file listing is printed before the
+/// aggregate stats — every processed file with its before/after sizes and
+/// percentage delta.
+pub fn print(s: Summary, planned_total: Int, report: Bool) -> Nil {
+  case report {
+    True -> print_details(s)
+    False -> Nil
+  }
+
   outln("")
   case s.cancelled {
     True ->
@@ -128,6 +142,35 @@ pub fn print(s: Summary, planned_total: Int) -> Nil {
         outln("  " <> format.relative(s.root, path) <> "  " <> reason)
       })
     }
+  }
+}
+
+fn print_details(s: Summary) -> Nil {
+  case s.details {
+    [] -> Nil
+    _ -> {
+      outln("")
+      outln("report:")
+      list.reverse(s.details)
+      |> list.each(fn(r) { outln("  " <> detail_line(s.root, r)) })
+    }
+  }
+}
+
+fn detail_line(root: String, r: FileResult) -> String {
+  case r {
+    Optimized(path, before, after) ->
+      format.relative(root, path)
+      <> "  "
+      <> format.bytes(before)
+      <> " -> "
+      <> format.bytes(after)
+      <> "  "
+      <> format.signed_percent(before, after)
+    Skipped(path, size) ->
+      format.relative(root, path) <> "  " <> format.bytes(size) <> "  skipped"
+    Failed(path, reason) ->
+      format.relative(root, path) <> "  FAIL  " <> reason
   }
 }
 

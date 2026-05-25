@@ -74,14 +74,15 @@ pub fn run(
   candidates: List(Candidate),
   toolset: Toolset,
   outcome: gitignore.Outcome,
+  report: Bool,
 ) -> Int {
   let total = list.length(candidates)
   case total {
     0 -> {
-      summary.print(summary.empty(root), 0)
+      summary.print(summary.empty(root), 0, report)
       0
     }
-    _ -> run_tui(root, candidates, toolset, outcome, total)
+    _ -> run_tui(root, candidates, toolset, outcome, total, report)
   }
 }
 
@@ -91,6 +92,7 @@ fn run_tui(
   toolset: Toolset,
   outcome: gitignore.Outcome,
   total: Int,
+  report: Bool,
 ) -> Int {
   let outcome_subject: Subject(Summary) = process.new_subject()
   let shore_exit: Subject(Nil) = process.new_subject()
@@ -145,7 +147,7 @@ fn run_tui(
         Ok(s) -> s
         Error(_) -> summary.set_cancelled(summary.empty(root))
       }
-      summary.print(final, total)
+      summary.print(final, total, report)
       summary.exit_code(final)
     }
   }
