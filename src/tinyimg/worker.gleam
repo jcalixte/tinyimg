@@ -20,10 +20,8 @@ fn unique_id() -> Int
 /// Process one candidate. Always returns a FileResult — never raises.
 pub fn process(candidate: Candidate, toolset: Toolset) -> FileResult {
   case tool_for(candidate.format, toolset) {
-    None -> Failed(
-      path: candidate.path,
-      reason: "no tool configured for format",
-    )
+    None ->
+      Failed(path: candidate.path, reason: "no tool configured for format")
     Some(tool) -> do_process(candidate, tool)
   }
 }
@@ -46,23 +44,29 @@ fn do_process(candidate: Candidate, tool: Tool) -> FileResult {
       let _ = simplifile.delete(tmp)
       Failed(path: src, reason:)
     }
-    Ok(Nil) -> case run(invocation) {
-      Error(reason) -> {
-        let _ = simplifile.delete(tmp)
-        Failed(path: src, reason:)
+    Ok(Nil) ->
+      case run(invocation) {
+        Error(reason) -> {
+          let _ = simplifile.delete(tmp)
+          Failed(path: src, reason:)
+        }
+        Ok(Nil) -> finalize(src, tmp, candidate.size)
       }
-      Ok(Nil) -> finalize(src, tmp, candidate.size)
-    }
   }
 }
 
-fn prepare(inv: tools.Invocation, src: String, tmp: String) -> Result(Nil, String) {
+fn prepare(
+  inv: tools.Invocation,
+  src: String,
+  tmp: String,
+) -> Result(Nil, String) {
   case inv {
     WriteToFile(_, _) -> Ok(Nil)
-    ModifyInPlace(_, _) -> case simplifile.copy_file(at: src, to: tmp) {
-      Ok(_) -> Ok(Nil)
-      Error(e) -> Error("copy failed: " <> simplifile.describe_error(e))
-    }
+    ModifyInPlace(_, _) ->
+      case simplifile.copy_file(at: src, to: tmp) {
+        Ok(_) -> Ok(Nil)
+        Error(e) -> Error("copy failed: " <> simplifile.describe_error(e))
+      }
   }
 }
 
@@ -73,12 +77,16 @@ fn run(inv: tools.Invocation) -> Result(Nil, String) {
   }
   case shellout.command(run: executable, with: args, in: ".", opt: []) {
     Ok(_) -> Ok(Nil)
-    Error(#(code, output)) -> Error(
-      executable_basename(executable) <> " exited " <> int.to_string(code) <> case output {
-        "" -> ""
-        s -> ": " <> trim_one_line(s)
-      },
-    )
+    Error(#(code, output)) ->
+      Error(
+        executable_basename(executable)
+        <> " exited "
+        <> int.to_string(code)
+        <> case output {
+          "" -> ""
+          s -> ": " <> trim_one_line(s)
+        },
+      )
   }
 }
 
@@ -88,23 +96,28 @@ fn finalize(src: String, tmp: String, before: Int) -> FileResult {
       let _ = simplifile.delete(tmp)
       Failed(path: src, reason: "tool produced no output")
     }
-    Ok(info) -> case info.size {
-      0 -> {
-        let _ = simplifile.delete(tmp)
-        Failed(path: src, reason: "tool produced empty output")
-      }
-      after if after >= before -> {
-        let _ = simplifile.delete(tmp)
-        Skipped(path: src, size: before)
-      }
-      after -> case simplifile.rename(at: tmp, to: src) {
-        Ok(_) -> Optimized(path: src, before:, after:)
-        Error(e) -> {
+    Ok(info) ->
+      case info.size {
+        0 -> {
           let _ = simplifile.delete(tmp)
-          Failed(path: src, reason: "rename failed: " <> simplifile.describe_error(e))
+          Failed(path: src, reason: "tool produced empty output")
         }
+        after if after >= before -> {
+          let _ = simplifile.delete(tmp)
+          Skipped(path: src, size: before)
+        }
+        after ->
+          case simplifile.rename(at: tmp, to: src) {
+            Ok(_) -> Optimized(path: src, before:, after:)
+            Error(e) -> {
+              let _ = simplifile.delete(tmp)
+              Failed(
+                path: src,
+                reason: "rename failed: " <> simplifile.describe_error(e),
+              )
+            }
+          }
       }
-    }
   }
 }
 

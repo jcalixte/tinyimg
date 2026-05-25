@@ -15,15 +15,18 @@ pub type Outcome {
 pub fn filter(root: String, candidates: List(Candidate)) -> Outcome {
   case shellout.which("git") {
     Error(_) -> NoGit(kept: candidates)
-    Ok(_) -> case inside_work_tree(root) {
-      False -> NoRepo(kept: candidates)
-      True -> {
-        let ignored = collect_ignored(root, list.map(candidates, fn(c) { c.path }))
-        let kept = list.filter(candidates, fn(c) { !set.contains(ignored, c.path) })
-        let dropped = list.length(candidates) - list.length(kept)
-        Applied(kept:, dropped:)
+    Ok(_) ->
+      case inside_work_tree(root) {
+        False -> NoRepo(kept: candidates)
+        True -> {
+          let ignored =
+            collect_ignored(root, list.map(candidates, fn(c) { c.path }))
+          let kept =
+            list.filter(candidates, fn(c) { !set.contains(ignored, c.path) })
+          let dropped = list.length(candidates) - list.length(kept)
+          Applied(kept:, dropped:)
+        }
       }
-    }
   }
 }
 

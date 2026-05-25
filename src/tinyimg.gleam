@@ -37,27 +37,30 @@ pub fn main() -> Nil {
       io.println_error("tinyimg: " <> msg)
       shellout.exit(2)
     }
-    Run(dir) -> case ensure_dir(dir) {
-      Error(msg) -> {
-        io.println_error("tinyimg: " <> msg)
-        shellout.exit(2)
+    Run(dir) ->
+      case ensure_dir(dir) {
+        Error(msg) -> {
+          io.println_error("tinyimg: " <> msg)
+          shellout.exit(2)
+        }
+        Ok(dir) -> dispatch(dir)
       }
-      Ok(dir) -> dispatch(dir)
-    }
   }
 }
 
 fn parse_args(args: List(String)) -> Action {
   case args {
-    [] -> case simplifile.current_directory() {
-      Ok(cwd) -> Run(cwd)
-      Error(_) -> BadUsage("could not determine current working directory")
-    }
-    [arg] -> case arg {
-      "-h" | "--help" -> Help
-      "-V" | "--version" -> Version
-      _ -> Run(arg)
-    }
+    [] ->
+      case simplifile.current_directory() {
+        Ok(cwd) -> Run(cwd)
+        Error(_) -> BadUsage("could not determine current working directory")
+      }
+    [arg] ->
+      case arg {
+        "-h" | "--help" -> Help
+        "-V" | "--version" -> Version
+        _ -> Run(arg)
+      }
     _ -> BadUsage("too many arguments. Usage: tinyimg [DIR]")
   }
 }
@@ -106,9 +109,7 @@ fn dispatch(dir: String) -> Nil {
       shellout.exit(3)
     }
     Ok(toolset) -> {
-      io.println(
-        "  " <> int.to_string(list.length(kept)) <> " candidate(s)",
-      )
+      io.println("  " <> int.to_string(list.length(kept)) <> " candidate(s)")
       let code = case is_tty() {
         True -> tui.run(dir, kept, toolset, outcome)
         False -> plain.run(dir, kept, toolset, outcome)

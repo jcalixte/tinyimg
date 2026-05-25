@@ -119,6 +119,7 @@ pub fn empty_directory_test() {
 }
 
 pub fn nonexistent_directory_test() {
-  let found = scan.scan("/definitely/not/a/real/path/" <> int.to_string(unique_id()))
+  let found =
+    scan.scan("/definitely/not/a/real/path/" <> int.to_string(unique_id()))
   assert found == []
 }

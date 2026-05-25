@@ -61,17 +61,20 @@ pub fn add(s: Summary, r: FileResult) -> Summary {
         original: s.original + size,
       )
     Failed(path, reason) ->
-      Summary(
-        ..s,
-        total: s.total + 1,
-        failed: s.failed + 1,
-        failures: [#(path, reason), ..s.failures],
-      )
+      Summary(..s, total: s.total + 1, failed: s.failed + 1, failures: [
+        #(path, reason),
+        ..s.failures
+      ])
   }
 }
 
-pub fn set_cancelled(s: Summary) -> Summary { Summary(..s, cancelled: True) }
-pub fn set_elapsed(s: Summary, ms: Int) -> Summary { Summary(..s, elapsed_ms: ms) }
+pub fn set_cancelled(s: Summary) -> Summary {
+  Summary(..s, cancelled: True)
+}
+
+pub fn set_elapsed(s: Summary, ms: Int) -> Summary {
+  Summary(..s, elapsed_ms: ms)
+}
 
 /// Print a multi-line summary block to stdout. Suitable both as the
 /// post-TUI summary and as the end-of-stream block in plain mode.
@@ -136,4 +139,6 @@ pub fn exit_code(s: Summary) -> Int {
 }
 
 /// Strip trailing newlines for one-line presentations.
-pub fn one_line(text: String) -> String { string.trim(text) }
+pub fn one_line(text: String) -> String {
+  string.trim(text)
+}

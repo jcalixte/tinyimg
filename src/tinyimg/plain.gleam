@@ -84,11 +84,7 @@ fn drain(
 
 fn print_line(root: String, total: Int, index: Int, r: FileResult) -> Nil {
   let prefix =
-    "["
-    <> int.to_string(index)
-    <> "/"
-    <> int.to_string(total)
-    <> "] "
+    "[" <> int.to_string(index) <> "/" <> int.to_string(total) <> "] "
 
   case r {
     Optimized(path, before, after) ->
@@ -111,8 +107,6 @@ fn print_line(root: String, total: Int, index: Int, r: FileResult) -> Nil {
         <> "  skipped",
       )
     Failed(path, reason) ->
-      io.println(
-        prefix <> format.relative(root, path) <> "  FAIL  " <> reason,
-      )
+      io.println(prefix <> format.relative(root, path) <> "  FAIL  " <> reason)
   }
 }

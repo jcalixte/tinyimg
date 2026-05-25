@@ -22,26 +22,36 @@ pub fn scan(root: String) -> List(Candidate) {
 fn walk(dir: String, acc: List(Candidate)) -> List(Candidate) {
   case simplifile.read_directory(dir) {
     Error(_) -> acc
-    Ok(entries) -> list.fold(entries, acc, fn(acc, name) { visit(dir, name, acc) })
+    Ok(entries) ->
+      list.fold(entries, acc, fn(acc, name) { visit(dir, name, acc) })
   }
 }
 
-fn visit(parent: String, name: String, acc: List(Candidate)) -> List(Candidate) {
+fn visit(
+  parent: String,
+  name: String,
+  acc: List(Candidate),
+) -> List(Candidate) {
   case string.starts_with(name, ".") {
     True -> acc
     False -> {
       let full = filepath.join(parent, name)
       case simplifile.link_info(full) {
         Error(_) -> acc
-        Ok(info) -> case simplifile.file_info_type(info) {
-          simplifile.Symlink -> acc
-          simplifile.Directory -> walk(full, acc)
-          simplifile.File -> case detect_format(name) {
-            Error(_) -> acc
-            Ok(format) -> [Candidate(path: full, format: format, size: info.size), ..acc]
+        Ok(info) ->
+          case simplifile.file_info_type(info) {
+            simplifile.Symlink -> acc
+            simplifile.Directory -> walk(full, acc)
+            simplifile.File ->
+              case detect_format(name) {
+                Error(_) -> acc
+                Ok(format) -> [
+                  Candidate(path: full, format: format, size: info.size),
+                  ..acc
+                ]
+              }
+            simplifile.Other -> acc
           }
-          simplifile.Other -> acc
-        }
       }
     }
   }

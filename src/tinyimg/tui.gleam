@@ -167,19 +167,20 @@ fn update(model: Model, msg: Msg) -> #(Model, List(fn() -> Msg)) {
       #(model, [])
     }
 
-    QuitPressed -> case model.stage {
-      Running -> {
-        process.send(model.control, pool.Cancel)
-        #(Model(..model, stage: Draining), [])
+    QuitPressed ->
+      case model.stage {
+        Running -> {
+          process.send(model.control, pool.Cancel)
+          #(Model(..model, stage: Draining), [])
+        }
+        Draining -> {
+          let final = finalize(model) |> summary.set_cancelled
+          process.send(model.outcome, final)
+          schedule_exit(model.outer)
+          #(Model(..model, stage: ForceQuitting), [])
+        }
+        ForceQuitting -> #(model, [])
       }
-      Draining -> {
-        let final = finalize(model) |> summary.set_cancelled
-        process.send(model.outcome, final)
-        schedule_exit(model.outer)
-        #(Model(..model, stage: ForceQuitting), [])
-      }
-      ForceQuitting -> #(model, [])
-    }
   }
 }
 
@@ -191,10 +192,11 @@ fn finalize(model: Model) -> Summary {
 fn schedule_exit(outer: Option(Subject(shore.Event(Msg)))) -> Nil {
   case outer {
     Some(o) -> {
-      let _ = process.spawn(fn() {
-        process.sleep(80)
-        process.send(o, shore.exit())
-      })
+      let _ =
+        process.spawn(fn() {
+          process.sleep(80)
+          process.send(o, shore.exit())
+        })
       Nil
     }
     None -> Nil
@@ -263,17 +265,16 @@ fn stats_line(model: Model) -> String {
 fn recent_section(model: Model, budget: Int) -> shore.Node(Msg) {
   case model.recent {
     [] -> ui.text("(waiting for first result…)")
-    items -> ui.col([
-      ui.text("recent"),
-      ..list.map(items, fn(r) { recent_line(model.root, r, budget) })
-    ])
+    items ->
+      ui.col([
+        ui.text("recent"),
+        ..list.map(items, fn(r) { recent_line(model.root, r, budget) })
+      ])
   }
 }
 
 fn recent_line(root: String, r: FileResult, budget: Int) -> shore.Node(Msg) {
-  let shown = fn(p) {
-    format.contract_path(format.relative(root, p), budget)
-  }
+  let shown = fn(p) { format.contract_path(format.relative(root, p), budget) }
   case r {
     Optimized(path, before, after) ->
       ui.text(

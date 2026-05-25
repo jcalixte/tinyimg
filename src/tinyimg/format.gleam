@@ -68,10 +68,11 @@ pub fn relative(root: String, path: String) -> String {
 pub fn contract_path(path: String, max: Int) -> String {
   case max <= 0 {
     True -> ""
-    False -> case string.length(path) <= max {
-      True -> path
-      False -> shrink(path, max)
-    }
+    False ->
+      case string.length(path) <= max {
+        True -> path
+        False -> shrink(path, max)
+      }
   }
 }
 
@@ -127,15 +128,18 @@ fn middle_truncate(s: String, max: Int) -> String {
   let len = string.length(s)
   case len <= max {
     True -> s
-    False -> case max <= 1 {
-      True -> string.slice(s, 0, max)
-      False -> {
-        let ellipsis = "…"
-        let keep = max - 1
-        let left = keep / 2 + keep % 2
-        let right = keep - left
-        string.slice(s, 0, left) <> ellipsis <> string.slice(s, len - right, right)
+    False ->
+      case max <= 1 {
+        True -> string.slice(s, 0, max)
+        False -> {
+          let ellipsis = "…"
+          let keep = max - 1
+          let left = keep / 2 + keep % 2
+          let right = keep - left
+          string.slice(s, 0, left)
+          <> ellipsis
+          <> string.slice(s, len - right, right)
+        }
       }
-    }
   }
 }

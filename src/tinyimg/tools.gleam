@@ -37,6 +37,7 @@ pub type Invocation {
 }
 
 const png_preference: List(ToolName) = [Oxipng, Optipng, Pngcrush]
+
 const jpg_preference: List(ToolName) = [Jpegtran, Jpegoptim]
 
 /// Probes PATH for the best available tool for each format present in the scan.
@@ -58,20 +59,22 @@ fn resolve(
 ) -> Result(Option(Tool), ProbeError) {
   case needed {
     False -> Ok(None)
-    True -> case find_first(prefs) {
-      Some(t) -> Ok(Some(t))
-      None -> Error(Missing(format:))
-    }
+    True ->
+      case find_first(prefs) {
+        Some(t) -> Ok(Some(t))
+        None -> Error(Missing(format:))
+      }
   }
 }
 
 fn find_first(prefs: List(ToolName)) -> Option(Tool) {
   case prefs {
     [] -> None
-    [name, ..rest] -> case shellout.which(executable_name(name)) {
-      Ok(path) -> Some(Tool(name:, executable: path))
-      Error(_) -> find_first(rest)
-    }
+    [name, ..rest] ->
+      case shellout.which(executable_name(name)) {
+        Ok(path) -> Some(Tool(name:, executable: path))
+        Error(_) -> find_first(rest)
+      }
   }
 }
 
@@ -87,34 +90,68 @@ pub fn executable_name(name: ToolName) -> String {
 
 pub fn missing_hint(format: Format) -> String {
   case format {
-    Png -> "no PNG optimizer found on PATH. Install one of:\n  brew install oxipng  (recommended)\n  brew install optipng\n  brew install pngcrush"
-    Jpg -> "no JPG optimizer found on PATH. Install one of:\n  brew install jpeg-turbo  (provides jpegtran, recommended)\n  brew install jpegoptim"
+    Png ->
+      "no PNG optimizer found on PATH. Install one of:\n  brew install oxipng  (recommended)\n  brew install optipng\n  brew install pngcrush"
+    Jpg ->
+      "no JPG optimizer found on PATH. Install one of:\n  brew install jpeg-turbo  (provides jpegtran, recommended)\n  brew install jpegoptim"
   }
 }
 
 /// Returns the appropriate Invocation strategy for a tool.
 pub fn invocation(tool: Tool, src: String, tmp: String) -> Invocation {
   case tool.name {
-    Oxipng -> WriteToFile(
-      tool.executable,
-      ["-o", "2", "--strip", "safe", "-t", "1", "--force", "--out", tmp, "--", src],
-    )
-    Optipng -> WriteToFile(
-      tool.executable,
-      ["-quiet", "-o2", "-strip", "all", "-out", tmp, "--", src],
-    )
-    Pngcrush -> WriteToFile(
-      tool.executable,
-      ["-q", "-rem", "alla", "-brute", "-new", src, tmp],
-    )
-    Jpegtran -> WriteToFile(
-      tool.executable,
-      ["-copy", "none", "-optimize", "-progressive", "-outfile", tmp, src],
-    )
+    Oxipng ->
+      WriteToFile(tool.executable, [
+        "-o",
+        "2",
+        "--strip",
+        "safe",
+        "-t",
+        "1",
+        "--force",
+        "--out",
+        tmp,
+        "--",
+        src,
+      ])
+    Optipng ->
+      WriteToFile(tool.executable, [
+        "-quiet",
+        "-o2",
+        "-strip",
+        "all",
+        "-out",
+        tmp,
+        "--",
+        src,
+      ])
+    Pngcrush ->
+      WriteToFile(tool.executable, [
+        "-q",
+        "-rem",
+        "alla",
+        "-brute",
+        "-new",
+        src,
+        tmp,
+      ])
+    Jpegtran ->
+      WriteToFile(tool.executable, [
+        "-copy",
+        "none",
+        "-optimize",
+        "-progressive",
+        "-outfile",
+        tmp,
+        src,
+      ])
     // jpegoptim modifies in place — worker copies src → tmp first, then runs.
-    Jpegoptim -> ModifyInPlace(
-      tool.executable,
-      ["--strip-all", "--all-progressive", "--quiet", tmp],
-    )
+    Jpegoptim ->
+      ModifyInPlace(tool.executable, [
+        "--strip-all",
+        "--all-progressive",
+        "--quiet",
+        tmp,
+      ])
   }
 }
