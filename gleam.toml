@@ -1,5 +1,5 @@
 name = "tinyimg"
-version = "1.3.0"
+version = "1.3.1"
 description = "Losslessly optimize PNG and JPG images in a directory, with a minimal terminal UI"
 
 [dependencies]

@@ -11,7 +11,7 @@ import tinyimg/scan.{type Candidate}
 import tinyimg/tools
 import tinyimg/tui
 
-const version = "1.3.0"
+const version = "1.3.1"
 
 pub type Action {
   Help
